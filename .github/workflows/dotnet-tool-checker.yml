@@ -1,0 +1,19 @@
+name: .NET tool checker
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_id:
+        default: dotnet-tool-updater.yml
+        description: The workflow to dispatch to
+        required: true
+        type: string
+
+jobs:
+  update:
+    uses: xt0rted/.github/.github/workflows/dotnet-tool-checker.yml@main
+    secrets:
+      DOTNET_UPDATER_APP_ID: ${{ secrets.DOTNET_UPDATER_APP_ID }}
+      DOTNET_UPDATER_PRIVATE_KEY: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
+    with:
+      workflow_id: ${{ github.event.inputs.workflow_id }}
