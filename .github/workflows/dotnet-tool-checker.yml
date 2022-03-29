@@ -5,9 +5,53 @@ on:
     - cron: "0 12 * * 1-5"
   workflow_dispatch:
 
+env:
+  workflow_id: dotnet-tool-updater.yml
+
 jobs:
-  update:
-    uses: xt0rted/.github/.github/workflows/dotnet-tool-checker.yml@main
-    secrets:
-      DOTNET_UPDATER_APP_ID: ${{ secrets.DOTNET_UPDATER_APP_ID }}
-      DOTNET_UPDATER_PRIVATE_KEY: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1.5.1
+        with:
+          app_id: ${{ secrets.DOTNET_UPDATER_APP_ID }}
+          private_key: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
+
+      - name: Check out repository
+        uses: actions/checkout@v3.0.0
+
+      - name: Get local tools
+        id: project
+        run: |
+          _tools="$(jq -r '.tools | map_values(.version) | to_entries | map({ "package-name": .key, "package-version": .value })' ./.config/dotnet-tools.json)"
+          _tools="${_tools//'%'/'%25'}"
+          _tools="${_tools//$'\n'/'%0A'}"
+          _tools="${_tools//$'\r'/'%0D'}"
+          echo "::set-output name=tools::${_tools}"
+
+      - name: Dispatch events
+        uses: actions/github-script@v6.0.0
+        with:
+          # Can use a PAT here instead
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            async function asyncForEach(array, callback) {
+              for (let index = 0; index < array.length; index++) {
+                await callback(array[index], index, array);
+              }
+            }
+            const projects = JSON.parse(process.env["project_tools"]);
+            await asyncForEach(projects, async (project) => {
+              console.info(`Dispatching for ${project["package-name"]}`);
+              await github.request("POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches", {
+                ...context.repo,
+                ref: context.ref,
+                workflow_id: "${{ env.workflow_id }}",
+                inputs: project,
+              });
+            });
+        env:
+         project_tools: ${{ steps.project.outputs.tools }}
