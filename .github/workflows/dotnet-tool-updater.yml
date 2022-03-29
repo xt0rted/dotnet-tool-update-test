@@ -14,11 +14,86 @@ on:
 
 jobs:
   update:
-    uses: xt0rted/.github/.github/workflows/dotnet-tool-updater.yml@main
-    secrets:
-      DOTNET_UPDATER_APP_ID: ${{ secrets.DOTNET_UPDATER_APP_ID }}
-      DOTNET_UPDATER_PRIVATE_KEY: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
-      GPR_READ_TOKEN: ${{ secrets.GPR_READ_TOKEN }}
-    with:
-      package-name: ${{ github.event.inputs.package-name }}
-      package-version: ${{ github.event.inputs.package-version }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1.5.1
+        with:
+          app_id: ${{ secrets.DOTNET_UPDATER_APP_ID }}
+          private_key: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
+
+      - name: Check out repository
+        uses: actions/checkout@v3.0.0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v2.0.0
+        with:
+          source-url: https://nuget.pkg.github.com/xt0rted/index.json
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GPR_READ_TOKEN }}
+
+      - name: Check for package update
+        run: dotnet tool update ${{ github.event.inputs.package-name }}
+
+      - name: Check for modified file
+        id: meta
+        shell: bash
+        run: |
+          if [[ $(git status --porcelain .config/dotnet-tools.json) ]]; then
+              echo "::set-output name=updated::true"
+
+              version="$(jq --arg package "${{ github.event.inputs.package-name }}" -r '.tools | map_values(.version) | to_entries[] |select(.key == $package) | .value' .config/dotnet-tools.json)"
+              echo "::set-output name=new-version::${version}"
+
+              project_url="https://www.nuget.org/packages/${{ github.event.inputs.package-name }}/$version"
+              meta="$(curl --silent https://api.nuget.org/v3-flatcontainer/${{ github.event.inputs.package-name }}/$version/${{ github.event.inputs.package-name }}.nuspec)"
+              pattern='<repository.*url="([^"]*)'
+
+              if [[ $meta =~ $pattern ]]; then
+                  project_url="$(echo ${BASH_REMATCH[1]} | sed 's/.git$//g')"
+              fi
+
+              project_url="${project_url//'%'/'%25'}"
+              project_url="${project_url//$'\n'/'%0A'}"
+              project_url="${project_url//$'\r'/'%0D'}"
+
+              echo "::set-output name=project-url::${project_url}"
+
+              update_type="$(npx -y semver-diff-cli ${{ github.event.inputs.package-version}} $version)"
+              echo "::set-output name=update-type::${update_type}"
+          else
+            echo "::set-output name=updated::false"
+          fi
+
+      - name: Create pull request
+        if: steps.meta.outputs.updated == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@v3.14.0
+        with:
+          # Can use a PAT here instead
+          token: ${{ steps.generate_token.outputs.token }}
+          author: dotnet-updater[bot] <100138291+dotnet-updater[bot]@users.noreply.github.com>
+          signoff: true
+          committer: dotnet-updater[bot] <100138291+dotnet-updater[bot]@users.noreply.github.com>
+          commit-message: |
+            Bump ${{ github.event.inputs.package-name }} from ${{ github.event.inputs.package-version}} to ${{ steps.meta.outputs.new-version }}
+
+            Bumps [${{ github.event.inputs.package-name }}](${{ steps.meta.outputs.project-url }}) from ${{ github.event.inputs.package-version}} to ${{ steps.meta.outputs.new-version }}.
+
+            ---
+            updated-dependencies:
+            - dependency-name: ${{ github.event.inputs.package-name }}
+              dependency-type: direct:development
+              update-type: version-update:${{ steps.meta.outputs.update-type }}
+            ...
+          branch: "dependabot/nuget/${{ github.event.inputs.package-name }}-${{ steps.meta.outputs.new-version }}"
+          delete-branch: true
+          title: |
+            Bump ${{ github.event.inputs.package-name }} from ${{ github.event.inputs.package-version}} to ${{ steps.meta.outputs.new-version }}
+          body: |
+            Bumps [${{ github.event.inputs.package-name }}](${{ steps.meta.outputs.project-url }}) from ${{ github.event.inputs.package-version}} to ${{ steps.meta.outputs.new-version }}.
+          labels: |
+            dependencies
+            .NET
