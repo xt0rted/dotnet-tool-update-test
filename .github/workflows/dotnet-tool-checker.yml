@@ -11,5 +11,3 @@ jobs:
     secrets:
       DOTNET_UPDATER_APP_ID: ${{ secrets.DOTNET_UPDATER_APP_ID }}
       DOTNET_UPDATER_PRIVATE_KEY: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
-    with:
-      workflow_id: dotnet-tool-updater.yml
