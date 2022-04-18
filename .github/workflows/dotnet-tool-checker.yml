@@ -13,13 +13,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Generate token
-        id: generate_token
-        uses: tibdex/github-app-token@v1.5.1
-        with:
-          app_id: ${{ secrets.DOTNET_UPDATER_APP_ID }}
-          private_key: ${{ secrets.DOTNET_UPDATER_PRIVATE_KEY }}
-
       - name: Check out repository
         uses: actions/checkout@v3.0.0
 
@@ -35,8 +28,7 @@ jobs:
       - name: Dispatch events
         uses: actions/github-script@v6.0.0
         with:
-          # Can use a PAT here instead
-          github-token: ${{ steps.generate_token.outputs.token }}
+          github-token: ${{ secrets.DOTNET_UPDATER_TOKEN }}
           script: |
             async function asyncForEach(array, callback) {
               for (let index = 0; index < array.length; index++) {
