@@ -34,25 +34,25 @@ jobs:
         id: meta
         shell: bash
         run: |
+          version="$(jq --arg package "${{ github.event.inputs.package-name }}" -r '.tools | map_values(.version) | to_entries[] |select(.key == $package) | .value' .config/dotnet-tools.json)"
+          project_url="https://www.nuget.org/packages/${{ github.event.inputs.package-name }}/$version"
+          meta="$(curl --silent https://api.nuget.org/v3-flatcontainer/${{ github.event.inputs.package-name }}/$version/${{ github.event.inputs.package-name }}.nuspec)"
+          pattern='<repository.*url="([^"]*)'
+
+          if [[ $meta =~ $pattern ]]
+          then
+              project_url="$(echo ${BASH_REMATCH[1]} | sed 's/.git$//g')"
+          fi
+
+          project_url="${project_url//'%'/'%25'}"
+          project_url="${project_url//$'\n'/'%0A'}"
+          project_url="${project_url//$'\r'/'%0D'}"
+
+          echo "::set-output name=project-url::${project_url}"
+
           if [[ $(git status --porcelain .config/dotnet-tools.json) ]]; then
               echo "::set-output name=updated::true"
-
-              version="$(jq --arg package "${{ github.event.inputs.package-name }}" -r '.tools | map_values(.version) | to_entries[] |select(.key == $package) | .value' .config/dotnet-tools.json)"
               echo "::set-output name=new-version::${version}"
-
-              project_url="https://www.nuget.org/packages/${{ github.event.inputs.package-name }}/$version"
-              meta="$(curl --silent https://api.nuget.org/v3-flatcontainer/${{ github.event.inputs.package-name }}/$version/${{ github.event.inputs.package-name }}.nuspec)"
-              pattern='<repository.*url="([^"]*)'
-
-              if [[ $meta =~ $pattern ]]; then
-                  project_url="$(echo ${BASH_REMATCH[1]} | sed 's/.git$//g')"
-              fi
-
-              project_url="${project_url//'%'/'%25'}"
-              project_url="${project_url//$'\n'/'%0A'}"
-              project_url="${project_url//$'\r'/'%0D'}"
-
-              echo "::set-output name=project-url::${project_url}"
 
               update_type="$(npx -y semver-diff-cli ${{ github.event.inputs.package-version}} $version)"
               echo "::set-output name=update-type::${update_type}"
@@ -90,3 +90,54 @@ jobs:
           labels: |
             dependencies
             .NET
+
+      - name: Job summary (updated)
+        if: steps.meta.outputs.updated == 'true'
+        uses: actions/github-script@v6.1.0
+        with:
+          script: |
+            await core
+              .summary
+              .addHeading("Package details")
+              .addTable([
+                [
+                  {
+                    header: true,
+                    data: "Name",
+                  },
+                  '<a href="${{ steps.meta.outputs.project-url }}">${{ github.event.inputs.package-name }}</a>',
+                ],
+                [
+                  {
+                    header: true,
+                    data: "From version",
+                  },
+                  '<a href="https://www.nuget.org/packages/${{ github.event.inputs.package-name }}/${{ github.event.inputs.package-version }}">${{ github.event.inputs.package-version }}</a>',
+                ],
+                [
+                  {
+                    header: true,
+                    data: "To version",
+                  },
+                  '<a href="https://www.nuget.org/packages/${{ github.event.inputs.package-name }}/${{ steps.meta.outputs.new-version }}">${{ steps.meta.outputs.new-version }}</a>',
+                ],
+                [
+                  {
+                    header: true,
+                    data: "Update type",
+                  },
+                  "${{ steps.meta.outputs.update-type }}",
+                ],
+              ])
+              .write();
+
+      - name: Job summary (not updated)
+        if: steps.meta.outputs.updated != 'true'
+        uses: actions/github-script@v6.1.0
+        with:
+          script: |
+            await core
+              .summary
+              .addHeading("Package details")
+              .addRaw('<a href="${{ steps.meta.outputs.project-url }}"><code>${{ github.event.inputs.package-name }}</code></a> was not updated')
+              .write();
