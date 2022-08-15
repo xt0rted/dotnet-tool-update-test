@@ -93,7 +93,7 @@ jobs:
 
       - name: Job summary (updated)
         if: steps.meta.outputs.updated == 'true'
-        uses: actions/github-script@v6.1.0
+        uses: actions/github-script@v6.1.1
         with:
           script: |
             await core
@@ -133,7 +133,7 @@ jobs:
 
       - name: Job summary (not updated)
         if: steps.meta.outputs.updated != 'true'
-        uses: actions/github-script@v6.1.0
+        uses: actions/github-script@v6.1.1
         with:
           script: |
             await core
