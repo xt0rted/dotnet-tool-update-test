@@ -26,7 +26,7 @@ jobs:
           echo "::set-output name=tools::${_tools}"
 
       - name: Dispatch events
-        uses: actions/github-script@v6.2.0
+        uses: actions/github-script@v6.3.0
         with:
           github-token: ${{ secrets.DOTNET_UPDATER_TOKEN }}
           script: |
