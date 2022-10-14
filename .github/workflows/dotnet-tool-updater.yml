@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v3.1.0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v3.0.1
+        uses: actions/setup-dotnet@v3.0.2
         with:
           source-url: https://nuget.pkg.github.com/xt0rted/index.json
         env:
