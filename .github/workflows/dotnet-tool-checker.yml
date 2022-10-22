@@ -23,7 +23,7 @@ jobs:
           _tools="${_tools//'%'/'%25'}"
           _tools="${_tools//$'\n'/'%0A'}"
           _tools="${_tools//$'\r'/'%0D'}"
-          echo "::set-output name=tools::${_tools}"
+          echo "tools=${_tools}" >> $GITHUB_OUTPUT
 
       - name: Dispatch events
         uses: actions/github-script@v6.3.3
