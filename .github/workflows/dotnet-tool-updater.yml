@@ -48,16 +48,16 @@ jobs:
           project_url="${project_url//$'\n'/'%0A'}"
           project_url="${project_url//$'\r'/'%0D'}"
 
-          echo "::set-output name=project-url::${project_url}"
+          echo "project-url=${project_url}" >> $GITHUB_OUTPUT
 
           if [[ $(git status --porcelain .config/dotnet-tools.json) ]]; then
-              echo "::set-output name=updated::true"
-              echo "::set-output name=new-version::${version}"
+              echo "updated=true" >> $GITHUB_OUTPUT
+              echo "new-version=${version}" >> $GITHUB_OUTPUT
 
               update_type="$(npx -y semver-diff-cli ${{ github.event.inputs.package-version}} $version)"
-              echo "::set-output name=update-type::${update_type}"
+              echo "update-type=${update_type}" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=updated::false"
+            echo "updated=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Create pull request
