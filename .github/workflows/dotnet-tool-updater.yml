@@ -44,10 +44,6 @@ jobs:
               project_url="$(echo ${BASH_REMATCH[1]} | sed 's/.git$//g')"
           fi
 
-          project_url="${project_url//'%'/'%25'}"
-          project_url="${project_url//$'\n'/'%0A'}"
-          project_url="${project_url//$'\r'/'%0D'}"
-
           echo "project-url=${project_url}" >> $GITHUB_OUTPUT
 
           if [[ $(git status --porcelain .config/dotnet-tools.json) ]]; then
