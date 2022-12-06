@@ -19,10 +19,11 @@ jobs:
       - name: Get local tools
         id: project
         run: |
+          DELIMITER=$(uuidgen)
           _tools="$(jq -r '.tools | map_values(.version) | to_entries | map({ "package-name": .key, "package-version": .value })' ./.config/dotnet-tools.json)"
-          echo 'tools<<EOF' >> $GITHUB_OUTPUT
-          echo $_tools >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
+          echo "tools<<${DELIMITER}" >> $GITHUB_OUTPUT
+          echo "${_tools}" >> $GITHUB_OUTPUT
+          echo "${DELIMITER}" >> $GITHUB_OUTPUT
 
       - name: Dispatch events
         uses: actions/github-script@v6.3.3
